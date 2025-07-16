@@ -20,14 +20,113 @@ along with Pa11y Dashboard.  If not, see <http://www.gnu.org/licenses/>.
 		<div class="action-buttons col-md-12 col-sm-6">
 			<div class="row">
 				<div class="col-md-12 col-sm-6 col-xs-12">
-			        <a href="{{mainResult.hrefCsv}}" class="btn-full-width btn btn-default" data-test="download-csv">
-			        	Download CSV <span class="glyphicon glyphicon-download" aria-hidden="true"></span>
-			        </a>
+					<a href="{{mainResult.hrefCsv}}" class="btn-full-width btn btn-default" data-test="download-csv">
+						Download CSV <span class="glyphicon glyphicon-download" aria-hidden="true"></span>
+					</a>
 				</div>
 				<div class="col-md-12 col-sm-6 col-xs-12">
-			        <a href="{{mainResult.hrefJson}}" class="btn-full-width btn btn-default" data-test="download-json">
-			        	Download JSON <span class="glyphicon glyphicon-download" aria-hidden="true"></span>
-			        </a>
+					<a href="{{mainResult.hrefJson}}" class="btn-full-width btn btn-default" data-test="download-json">
+						Download JSON <span class="glyphicon glyphicon-download" aria-hidden="true"></span>
+					</a>
+				</div>
+				<div class="col-md-12 col-sm-6 col-xs-12">
+		<a style="background-color:red;"href="#" id="create-github-issues" class="btn-full-width btn btn-default" data-test="create-github-issues">
+			Issues aanmaken <span class="glyphicon glyphicon-download" aria-hidden="true"></span>
+		</a>
+		<script>
+		document.addEventListener('DOMContentLoaded', function() {
+			var btn = document.getElementById('create-github-issues');
+			if (btn) {
+				btn.addEventListener('click', function(e) {
+					e.preventDefault();
+					var repoName = prompt('Enter GitHub repository name (e.g. millbrooks-wordpress-theme):');
+					if (!repoName) return;
+					var repo = 'scherpdev/' + repoName;
+					var token = prompt('Enter your GitHub Personal Access Token:');
+					if (!token) return;
+					var errors = document.querySelectorAll('#errors-list .panel-default');
+					if (!errors.length) {
+						alert('No errors found to create issues for.');
+						return;
+					}
+					var issues = [];
+					errors.forEach(function(panel) {
+						var rule = panel.querySelector('.rule-name')?.innerText || '';
+						var message = panel.querySelector('.panel-body .text')?.innerText || '';
+						var problematicCodes = Array.from(panel.querySelectorAll('.selectors-list div')).map(function(div){
+							return div.innerText.trim();
+						}).filter(function(ctx){ return ctx; });
+						var solutionLinks = Array.from(panel.querySelectorAll('.solutions-list a'));
+						var issueTitle = solutionLinks.length ? solutionLinks[0].innerText : rule;
+						var solutions = solutionLinks.map(function(a){ return a.href + ' - ' + a.innerText; });
+						var body = 'This issue is related to the WCAG accessibility guidelines.\n\n';
+						body += 'Message: ' + message + '\n';
+						if (problematicCodes.length) body += '\nProblematic code:\n' + problematicCodes.join('\n');
+						if (solutions.length) body += '\nSolutions:\n' + solutions.join('\n');
+						issues.push({
+							title: issueTitle,
+							body: body
+						});
+					});
+					if (issues.length) {
+						var sample = issues[0];
+						var sampleRequest =
+							'POST https://api.github.com/repos/' + repo + '/issues\n' +
+							'Headers:\n' +
+							'  Authorization: Bearer [YOUR_TOKEN]\n' +
+							'  Accept: application/vnd.github+json\n' +
+							'Body (JSON):\n' +
+							JSON.stringify({ title: sample.title, body: sample.body }, null, 2);
+						if (!confirm(
+							'Ready to create ' + issues.length + ' issues.\n\n' +
+							'Sample first issue:\n' +
+							'Title: ' + sample.title + '\n' +
+							'Body:\n' + sample.body + '\n\n' +
+							'Sample GitHub API request for first issue:\n' + sampleRequest +
+							'\n\nProceed to create issues on GitHub?')) {
+							return;
+						}
+						var created = 0, failed = 0;
+						var results = [];
+						var headers = {
+							'Authorization': 'Bearer ' + token,
+							'Accept': 'application/vnd.github+json',
+							'Content-Type': 'application/json'
+						};
+						function createIssue(issue, idx) {
+							return fetch('https://api.github.com/repos/' + repo + '/issues', {
+								method: 'POST',
+								headers: headers,
+								body: JSON.stringify({ title: issue.title, body: issue.body })
+							}).then(function(response) {
+								if (response.ok) {
+									created++;
+									return response.json().then(function(data) {
+										results.push('Issue #' + (idx+1) + ' created: ' + data.html_url);
+									});
+								} else {
+									failed++;
+									return response.text().then(function(text) {
+										results.push('Issue #' + (idx+1) + ' failed: ' + text);
+									});
+								}
+							}).catch(function(err) {
+								failed++;
+								results.push('Issue #' + (idx+1) + ' failed: ' + err);
+							});
+						}
+						Promise.all(issues.map(createIssue)).then(function() {
+							alert(
+								'GitHub issue creation complete!\n' +
+								'Created: ' + created + '\nFailed: ' + failed + '\n\n' +
+								results.join('\n')
+							);
+						});
+					}
+				});
+			}
+		});
+		</script>
 				</div>
 			</div>
 		</div>
@@ -58,7 +157,7 @@ along with Pa11y Dashboard.  If not, see <http://www.gnu.org/licenses/>.
 				<h2 class="crunch-top h3">View results in browser</h2>
 				<p class="crunch-bottom">Pa11y uses HTML_CodeSniffer to find accessibility issues. <a href="http://squizlabs.github.io/HTML_CodeSniffer/">Use their bookmarklet</a> to view results on the page you are testing.</p>
 			</div>
-	    </div>
+		</div>
 	</div>
 </div>
 
@@ -131,13 +230,13 @@ along with Pa11y Dashboard.  If not, see <http://www.gnu.org/licenses/>.
 								{{/if}}
 
 								{{#if items.length}}
-									<div class="subtitle">Selectors:</div>
+									<div class="subtitle">Problematic code:</div>
 									<ul class="list-unstyled selectors-list">
 										{{#each items}}
 											<li class="list-unstyled__item">
-												<span title="Context" data-role="context-popover" data-toggle="popover" data-content="{{context}}">
-													<code class="code">{{selector}}</code>
-												</span>
+												<div>{{context}}</div>
+											
+										
 											</li>
 										{{/each}}
 									</ul>
