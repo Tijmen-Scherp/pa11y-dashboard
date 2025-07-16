@@ -53,16 +53,21 @@ along with Pa11y Dashboard.  If not, see <http://www.gnu.org/licenses/>.
 					errors.forEach(function(panel) {
 						var rule = panel.querySelector('.rule-name')?.innerText || '';
 						var message = panel.querySelector('.panel-body .text')?.innerText || '';
+						function escapeHtml(text) {
+							var div = document.createElement('div');
+							div.innerText = text;
+							return div.innerText;
+						}
 						var problematicCodes = Array.from(panel.querySelectorAll('.selectors-list div')).map(function(div){
-							return div.innerText.trim();
+							return div.innerHTML.trim();
 						}).filter(function(ctx){ return ctx; });
 						var solutionLinks = Array.from(panel.querySelectorAll('.solutions-list a'));
 						var issueTitle = solutionLinks.length ? solutionLinks[0].innerText : rule;
 						var solutions = solutionLinks.map(function(a){ return a.href + ' - ' + a.innerText; });
 						var body = 'This issue is related to the WCAG accessibility guidelines.\n\n';
-						body += 'Message: ' + message + '\n';
-						if (problematicCodes.length) body += '\nProblematic code:\n' + problematicCodes.join('\n');
-						if (solutions.length) body += '\nSolutions:\n' + solutions.join('\n');
+						body += 'Problem statement: ' + message + '\n';
+						if (problematicCodes.length) body += '\nThe issue is most likely related to:\n' + problematicCodes.join('\n');
+						if (solutions.length) body += '\nWCAG Reference documentation:\n' + solutions.join('\n');
 						issues.push({
 							title: issueTitle,
 							body: body
@@ -230,7 +235,7 @@ along with Pa11y Dashboard.  If not, see <http://www.gnu.org/licenses/>.
 								{{/if}}
 
 								{{#if items.length}}
-									<div class="subtitle">Problematic code:</div>
+									<div class="subtitle">The issue is most likely related to:</div>
 									<ul class="list-unstyled selectors-list">
 										{{#each items}}
 											<li class="list-unstyled__item">
